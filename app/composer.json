@@ -1,0 +1,17 @@
+{
+  "name": "root/app",
+  "autoload": {
+    "psr-4": {
+      "Router\\": "routes/",
+      "App\\": "app/",
+      "Database\\": "database/"
+    }
+  },
+  "authors": [
+    {
+      "name": "David Vanmak",
+      "email": "david@gmail.com"
+    }
+  ],
+  "require": {}
+}
