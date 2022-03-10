@@ -1,14 +1,25 @@
 version: "3.1"
 services:
   web:
+    networks:
+      - dev
     container_name: nginx
     image: nginx:latest
-    ports:
-      - "80:80"
+    # Inutile grace aux labels
+    # ports:
+    #   - "8741:80"
     volumes:
       - ./config/nginx/nginx.conf:/etc/nginx/conf.d/default.conf
       - ./app/api/:/app
+    labels:
+      - "traefik.http.routers.app1.rule=Host(`app1.traefik.me`)"
+      - "traefik.http.routers.app1-tls.tls.domains[0].main=app1.traefik.me"
+      - "traefik.http.routers.app1-tls.tls.domains[0].sans=app1-*.traefik.me"
+      - "traefik.http.routers.app1.tls=true"
+
   php:
+    networks:
+      - dev
     container_name: php
     build:
       context: ./config/php
@@ -20,6 +31,8 @@ services:
     volumes:
       - ./app/api:/app
   mysql:
+    networks:
+      - dev
     container_name: mysql
     image: mariadb:latest
     environment:
@@ -31,5 +44,39 @@ services:
       - mysqldata:/var/lib/mysql
     ports:
       - 3306:3306
+  traefik:
+    networks:
+      - dev
+    container_name: traefik
+    restart: unless-stopped
+    image: traefik:v2.0.2
+    ports:
+      - "80:80"
+      - "443:443"
+    labels:
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+    volumes:
+      - ./config/traefik/traefik.yml:/etc/traefik/traefik.yml
+      - ./config/traefik/tls.yml:/etc/traefik/tls.yml
+      # Accéder au socket docker de notre machine
+      # Voir les containers qui tournent et y avoir accès
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Les certificats seront stockés dans ce volume
+      - certs:/etc/ssl/traefik
+  # Wget des cert et privkey.pem sur le site de traefik
+  # Traefik a la possibilité de faire des certificats
+  # pour
+  reverse-proxy-https-helper:
+    networks:
+      - dev
+    image: alpine
+    command: sh -c "cd /etc/ssl/traefik
+      && wget traefik.me/cert.pem -O cert.pem
+      && wget traefik.me/privkey.pem -O privkey.pem"
+    volumes:
+      - certs:/etc/ssl/traefik
+networks:
+  dev:
 volumes:
   mysqldata: {}
+  certs:
